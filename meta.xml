@@ -1,0 +1,4 @@
+<meta>
+  <info name="DominoBlockchain" type="script" />
+  <script src="bin\Debug\netcoreapp2.0\DominoBlockchain.dll" />
+</meta>
