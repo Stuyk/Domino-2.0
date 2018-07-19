@@ -4,10 +4,10 @@ using System.Text;
 
 namespace DominoBlockchain
 {
-    public class StandardData
+    public class Shared
     {
-        public int Id { get; set; }
+        public uint Id { get; set; }
         public string Hash { get; set; }
-        public long CreationDate { get; set; } = DateTime.UtcNow.ToBinary();
+        public long Timestamp { get; set; } = DateTime.UtcNow.ToBinary();
     }
 }

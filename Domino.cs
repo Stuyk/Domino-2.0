@@ -11,20 +11,17 @@ namespace DominoBlockchain
 {
     public class Domino : Script
     {
-        public static bool Running;
+        public static readonly object LockObject = new object();
         
         public static Block CurrentBlock;
 
         public const string MainAccountName = "DominoBlockchain";
         public const decimal TaxAmount = 0.02m; // 2%
-        public const ulong MaximumEconomySupply = 5_000_000;
+        public const ulong MaximumSupply = ulong.MaxValue;
         public const int BlockTime = 5_000; // MS
         public const int MaxTxPerBlock = 128;
 
-        // Time
-        //private static DateTime LastQueueCheck = DateTime.Now.AddSeconds(5);
-        //private static DateTime TimeSinceLastBlock = DateTime.Now.AddMilliseconds(BlockTime); // 30 Sec. Block Time
-        // Setup
+        public static readonly ThreadSafeCollection<Transaction> ConfirmedTxs = new ThreadSafeCollection<Transaction>();
 
         // Entry point
         public Domino()
@@ -32,37 +29,35 @@ namespace DominoBlockchain
             NAPI.Util.ConsoleOutput("[DOMINO] Initializing..");
 
             Database.Initialize();
-            Worker.Initialize();
+            CurrentBlock = Database.LastBlock;
+            //Dispatcher.Test();
 
             // First setup for the collection if it does not exist. Create our first transaction that is our money cap.
-            if (!Database.CollectionExists<Block>())
+            if (!Database.Exists<Block>())
             {
                 CreateGenesisBlock();
                 NAPI.Util.ConsoleOutput("[DOMINO] Genesis Block Created.");
-                Running = true;
                 return;
             }
 
-            // Check if Verification is proper.
-            if (!Verification.VerifyAllBlocks())
+            // Check if the blocks are properly signed.
+            if (!Block.VerifyAllBlocks())
             {
                 NAPI.Util.ConsoleOutput("[DOMINO] Block verification failed. Stopping resource...");
-                Running = false;
                 return;
             }
 
             // If transactions are verified successfully move foreward.
             NAPI.Util.ConsoleOutput("[DOMINO] Blocks verified successfully.");
-            Running = true;
 
-            // Create new transaction
-            Utility.CreateNewTransaction(MainAccountName, "Stuyk", 1000);
+            // Create new dummy transaction
+            new Transaction { Sender = MainAccountName, Reciever = "Stuyk", Amount = 1000 };
         }
 
         [ServerEvent(Event.PlayerSpawn)]
         public void HashPlayerNameOnSpawn(Client client)
         {
-            client.SetData("DOMINO", Utility.ComputeHash(client.Name));
+            client.SetData("DOMINO", Util.ComputeHash(client.Name));
         }
 
         /// <summary>
@@ -71,26 +66,28 @@ namespace DominoBlockchain
         private static void CreateGenesisBlock()
         {
             // Create a new block.
-            var block = Block.CreateNewBlock(previousHash: Utility.ComputeHash("Stuyk"), maxSupply: MaximumEconomySupply, mainAccount: MainAccountName);
+            CurrentBlock = new Block { Hash = Util.ComputeHash("Stuyk", MaximumSupply, MainAccountName)};
 
             // Generate a new transaction.
-            var transaction = Transaction.CreateNewTransaction(sender: Utility.ComputeHash(MainAccountName, MaximumEconomySupply, Utility.RandGen.Next()), receiver: Utility.ComputeHash(MainAccountName), amount: MaximumEconomySupply);
-            block.ConfirmedTx.Add(transaction);
-
-            // Get the hash we want to try and use.
-            string hash = Utility.ComputeHash(block.PreviousHash, block.ConfirmedTx, block.CreationDate, block.Nonce);
-            
-            // Begin signing the block.
-            while (hash.Substring(0, 3) != "000")
+            var mainAccountHash = Util.ComputeHash(MainAccountName);
+            new Transaction
             {
-                block.Nonce++;
-                hash = Utility.ComputeHash(block.PreviousHash, block.ConfirmedTx, block.CreationDate, block.Nonce);
-            }
+                Sender = mainAccountHash,
+                Reciever = mainAccountHash,
+                Amount = MaximumSupply
+            };
 
-            block.Hash = hash;
+            //// Get the hash we want to try and use.
+            //string hash = Util.ComputeHash(block.PreviousBlockHash, block.ConfirmedTx, block.Time, block.Nonce);
+            
+            //// Begin signing the block.
+            //while (hash.Substring(0, 3) != "000")
+            //{
+            //    block.Nonce++;
+            //    hash = Util.ComputeHash(block.PreviousBlockHash, block.ConfirmedTx, block.Time, block.Nonce);
+            //}
 
-            // Block found. Add it to our database.
-            Database.GetCollection<Block>().InsertEx(block);
+            //block.Hash = hash;
         }
     }
 }
