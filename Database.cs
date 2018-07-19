@@ -50,14 +50,7 @@ namespace DominoBlockchain
             }
         }
 
-        public static Block LastBlock
-        {
-            get
-            {
-                var collection = Get<Block>();
-                return collection?.FindOne(Query.All(Query.Descending));
-            }
-        }
+        public static Block LastBlock => _ledgerCollection?.FindOne(Query.All(Query.Descending));
 
         private static readonly char Path = System.IO.Path.DirectorySeparatorChar;
         private static readonly string AssemblyName = typeof(Database).Assembly.GetName().Name;
