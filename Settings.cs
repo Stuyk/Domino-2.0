@@ -10,22 +10,30 @@ namespace Domino
     {
         [JsonProperty("DatabaseLocation")]
         public static string DatabaseLocation { get; set; } = @".\Domino";
+
         [JsonProperty("DatabaseName")]
         public static string DatabaseFile { get; set; } = @"\database.db";
+
         [JsonProperty("ServerAccount")]
         public static string ServerAccount { get; set; } = "Domino";
+
         [JsonProperty("TaxAmount")]
         public static decimal TaxAmount { get; set; } = 0.02m;
+
         [JsonProperty("MaximumEconomySupply")]
         public static ulong MaximumEconomySupply { get; set; } = 5000000;
+
         [JsonProperty("BlockTime")]
         public static int BlockTime { get; set; } = 30000;
+
         [JsonProperty("MaxTxPerBlock")]
         public static int MaxTxPerBlock { get; set; } = 128;
+
         [JsonProperty("DisableBasicCommands")]
-        public static bool DisableBasicCommands { get; set; } = false;
+        public static bool DisableBasicCommands { get; set; } // false by default
+
         [JsonProperty("DisableNotifications")]
-        public static bool DisableNotifications { get; set; } = false;
+        public static bool DisableNotifications { get; set; } // false by default
 
         public static void Initialize()
         {

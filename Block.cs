@@ -8,7 +8,7 @@ namespace Domino
 {
     internal class Block : StandardData
     {
-        public string PreviousHash { get; set; } = null;
+        public string PreviousHash { get; set; } // null by default
         public int Nonce { get; set; }
         public List<Transaction> Transactions { get; set; }
 
