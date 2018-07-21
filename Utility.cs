@@ -18,7 +18,7 @@ namespace Domino
             var ctrHash = string.Empty;
             foreach (var arg in args)
             {
-                if (arg == null || (arg is string && string.IsNullOrWhiteSpace(arg.ToString()))) continue; ;
+                if (arg == null || (arg is string && string.IsNullOrWhiteSpace(arg.ToString()))) continue;
                 ctrHash += arg;
             }
 

@@ -2,6 +2,7 @@
 using LiteDB;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Domino
@@ -11,8 +12,7 @@ namespace Domino
         /// <summary>
         /// Retrieve account balance based on just accountName.
         /// </summary>
-        /// <param name="accountName"></param>
-        /// <param name="isHashed"></param>
+        /// <param name="client"></param>
         /// <returns></returns>
         public static decimal GetAccountBalance(Client client)
         {
@@ -48,33 +48,24 @@ namespace Domino
         /// <summary>
         /// Retrieve the account has enough balance. True or False.
         /// </summary>
-        /// <param name="accountName"></param>
+        /// <param name="client"></param>
         /// <param name="amount"></param>
-        /// <param name="isHashed"></param>
         /// <returns></returns>
         public static bool HasEnoughBalance(Client client, decimal amount)
         {
-            if (GetAccountBalance(client) >= amount)
-                return true;
-
-            return false;
+            return GetAccountBalance(client) >= amount;
         }
 
         /// <summary>
         /// Send a single transaction that will not allow additional transactions until complete.
         /// </summary>
-        /// <param name="sender"></param>
+        /// <param name="client"></param>
         /// <param name="reciever"></param>
         /// <param name="amount"></param>
         public static void SendPeerToPeerTransaction(Client client, string reciever, decimal amount)
         {
-            if (amount <= 0)
-                return;
-
-            if (amount >= 100000)
-                return;
-
-            if (!HasEnoughBalance(client, amount))
+            // Why is the type decimal???
+            if (amount == 0 || amount > 100_000 || !HasEnoughBalance(client, amount))
                 return;
 
             Client recievingParty = GetClientByName(reciever);
@@ -84,8 +75,7 @@ namespace Domino
                 client.SendChatMessage($"~o~{reciever} ~w~is ~r~not available~w~. Sending transaction to ~o~{reciever}.");
             }
             
-            Transaction transaction = new Transaction();
-            transaction.CreateTransaction(client.Name, reciever, amount);
+            Transaction.Create(client.Name, reciever, amount);
         }
 
         public static void SendServerRewardTransaction(Client client, decimal amount)
@@ -96,17 +86,7 @@ namespace Domino
                 return;
             }
 
-            Transaction transaction = new Transaction();
-            transaction.CreateTransaction(Settings.ServerAccount, client.Name, amount);
-        }
-
-        /// <summary>
-        /// Returns the server account name.
-        /// </summary>
-        /// <returns></returns>
-        public static string GetServerAccountName()
-        {
-            return Settings.ServerAccount;
+            Transaction.Create(Settings.ServerAccount, client.Name, amount);
         }
 
         /// <summary>
@@ -116,12 +96,7 @@ namespace Domino
         /// <returns></returns>
         public static string GetNameFromHash(string hash)
         {
-            foreach (Client client in NAPI.Pools.GetAllPlayers())
-            {
-                if ((client.GetData("DominoAccount") as PlayerHelper).Hash == hash)
-                    return client.Name;
-            }
-            return null;
+            return Domino.PlayerList.FirstOrDefault(x => x.Hash == hash)?.PlayerName;
         }
 
         /// <summary>
@@ -131,7 +106,7 @@ namespace Domino
         /// <returns></returns>
         public static PlayerHelper GetClientHelper(Client client)
         {
-            return client.GetData("DominoAccount") as PlayerHelper;
+            return Domino.PlayerList.FirstOrDefault(x => x.Client == client);
         }
 
         /// <summary>
@@ -141,7 +116,7 @@ namespace Domino
         /// <returns></returns>
         public static Client GetClientByName(string name)
         {
-            return NAPI.Pools.GetAllPlayers().Find(x => x.Name == name);
+            return NAPI.Pools.GetAllPlayers().FirstOrDefault(x => x.Name == name);
         } 
 
 

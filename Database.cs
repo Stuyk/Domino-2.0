@@ -152,9 +152,7 @@ namespace Domino
             };
 
             // Add our transaction to a new block.
-            Block block = new Block();
-            block.Transactions.Add(transaction);
-
+            Block block = new Block(transaction);
             block.MineBlock();
             Initialize();
         }

@@ -19,6 +19,14 @@ namespace Domino
             Nonce = 0;
         }
 
+        public Block(Transaction tx)
+        {
+            Transactions = new List<Transaction>();
+            Nonce = 0;
+
+            Transactions.Add(tx);
+        }
+
         /// <summary>
         /// Mine our block and determine the Nonce necessary to validate it.
         /// </summary>
@@ -65,7 +73,7 @@ namespace Domino
         {
             foreach (Transaction trans in Transactions)
             {
-                if (trans.WasTaxTransaction)
+                if (trans.TaxedTransaction)
                     continue;
 
                 Client reciever = NAPI.Player.GetPlayerFromName(Accounting.GetNameFromHash(trans.Reciever));

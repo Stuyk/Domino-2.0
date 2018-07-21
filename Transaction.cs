@@ -9,29 +9,40 @@ namespace Domino
         public string Sender { get; set; }
         public string Reciever { get; set; }
         public decimal Amount { get; set; }
-        public bool WasTaxTransaction { get; set; } = false;
+        public bool TaxedTransaction { get; set; } // false by default
+        public Transaction TaxTransaction { get; set; }
 
         /// <summary>
-        /// Create a new transaction.
+        /// Create a tranasaction.
+        /// </summary>
+        public Transaction()
+        {
+            Create(Sender, Reciever, Amount, TaxedTransaction);
+        }
+
+        /// <summary>
+        /// Creates a new transaction.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="reciever"></param>
         /// <param name="amount"></param>
-        public Transaction CreateTransaction(string sender, string reciever, decimal amount, bool isTaxTransaction = false)
+        /// <param name="taxed">(optional)</param>
+        public static Transaction Create(string sender, string reciever, decimal amount, bool taxed = false)
         {
-            if (isTaxTransaction)
+            var transaction = new Transaction
             {
-                TaxTransaction(sender, reciever, amount);
-                return this;
+                Sender = Utility.ComputeHash(sender),
+                Reciever = Utility.ComputeHash(reciever),
+                Amount = amount,
+                TaxedTransaction = taxed
+            };
+
+            if (taxed)
+            {
+                decimal taxAmount = amount * Settings.TaxAmount;
+                transaction.Amount -= taxAmount;
+                transaction.TaxTransaction = Create(transaction.Sender, Utility.ComputeHash(Settings.ServerAccount), taxAmount, true); 
             }
-
-            Sender = Utility.ComputeHash(sender);
-            Reciever = Utility.ComputeHash(reciever);
-            Amount = amount;
-
-            decimal taxAmount = DetermineTax(Amount);
-            Amount = Amount - taxAmount;
-            TransactionFee(taxAmount);
 
             if (Worker.CurrentBlock == null)
             {
@@ -44,40 +55,8 @@ namespace Domino
                 Worker.CurrentBlock = new Block();
             }
 
-            Worker.CurrentBlock.Transactions.Add(this);
-            return this;
-        }
-
-        private void TaxTransaction(string sender, string reciever, decimal amount)
-        {
-            Sender = sender;
-            Reciever = reciever;
-            Amount = amount;
-            WasTaxTransaction = true;
-
-            if (Worker.CurrentBlock == null)
-            {
-                Worker.CurrentBlock = new Block();
-            }
-
-            if (Worker.CurrentBlock.Transactions.Count >= Settings.MaxTxPerBlock)
-            {
-                Worker.QueuedBlocks.Enqueue(Worker.CurrentBlock);
-                Worker.CurrentBlock = new Block();
-            }
-
-            Worker.CurrentBlock.Transactions.Add(this);
-        }
-
-        private void TransactionFee(decimal amount)
-        {
-            Transaction transaction = new Transaction();
-            transaction.CreateTransaction(Sender, Utility.ComputeHash(Settings.ServerAccount), amount, true);
-        }
-
-        private decimal DetermineTax(decimal amount)
-        {
-            return amount * Settings.TaxAmount;
+            Worker.CurrentBlock.Transactions.Add(transaction);
+            return transaction;
         }
     }
 }
