@@ -8,7 +8,7 @@ namespace Domino
 {
     internal class Block : StandardData
     {
-        public string PreviousHash { get; set; } = null;
+        public string PreviousHash { get; set; } // null by default
         public int Nonce { get; set; }
         public List<Transaction> Transactions { get; set; }
 
@@ -17,6 +17,14 @@ namespace Domino
         {
             Transactions = new List<Transaction>();
             Nonce = 0;
+        }
+
+        public Block(Transaction tx)
+        {
+            Transactions = new List<Transaction>();
+            Nonce = 0;
+
+            Transactions.Add(tx);
         }
 
         /// <summary>
@@ -53,7 +61,7 @@ namespace Domino
                 Hash = RetrieveHash();
             }
 
-            Database.Add(this);
+            Database.AddToCollection(this);
             Console.WriteLine($"--> [Domino] Block Confirmed. Added to Database.");
             Console.WriteLine($"ID: {ID} || Transaction Count: {Transactions.Count} || Difficulty: {Nonce}");
             Console.WriteLine($"Unconfirmed Blocks: {Worker.QueuedBlocks.Count} || Transaction Time: {(DateTime.Now - startTime).Minutes}m {(DateTime.Now - startTime).Seconds}s \r\n");
@@ -65,7 +73,7 @@ namespace Domino
         {
             foreach (Transaction trans in Transactions)
             {
-                if (trans.WasTaxTransaction)
+                if (trans.TaxedTransaction)
                     continue;
 
                 Client reciever = NAPI.Player.GetPlayerFromName(Accounting.GetNameFromHash(trans.Reciever));

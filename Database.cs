@@ -9,6 +9,46 @@ namespace Domino
 {
     internal class Database
     {
+        private static bool _ledgerMutated;
+
+        private static int _count;
+        public static int Count
+        {
+            get
+            {
+                if (_ledgerMutated) _count = BlockCollection.Count();
+                return _count;
+            }
+        }
+
+        private static LiteCollection<Block> _ledgerCollection;
+        public static LiteCollection<Block> BlockCollection
+        {
+            get
+            {
+                if (_ledgerMutated)
+                {
+                    _ledgerCollection = GetCollection<Block>();
+                    _ledgerMutated = false;
+                }
+                return _ledgerCollection;
+            }
+        }
+
+        private static IEnumerable<Block> _fullLedgerCollection;
+        public static IEnumerable<Block> FullBlockCollection
+        {
+            get
+            {
+                if (_ledgerMutated)
+                {
+                    _fullLedgerCollection = GetFullCollection<Block>();
+                    _ledgerMutated = false;
+                }
+                return _fullLedgerCollection;
+            }
+        }
+
         // Initialize our Database.
         public static void Initialize()
         {
@@ -32,7 +72,7 @@ namespace Domino
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static IEnumerable<T> GetFullCollection<T>()
+        private static IEnumerable<T> GetFullCollection<T>()
         {
             using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
             {
@@ -41,13 +81,16 @@ namespace Domino
         }
 
         /// <summary>
-        /// Get the Full Collection Count for Blocks
+        /// Get the collection based on its type.
         /// </summary>
+        /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static int GetCollectionCount()
+        private static LiteCollection<T> GetCollection<T>()
         {
-            IEnumerable<Block> blocks = GetFullCollection<Block>();
-            return blocks.Count();
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
+            {
+                return db.GetCollection<T>();
+            }
         }
 
         /// <summary>
@@ -57,7 +100,10 @@ namespace Domino
         /// <returns></returns>
         public static bool Exists<T>()
         {
-            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile)) return db.CollectionExists(typeof(T).Name);
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
+            {
+                return db.CollectionExists(typeof(T).Name);
+            }
         }
 
         /// <summary>
@@ -66,13 +112,14 @@ namespace Domino
         /// <typeparam name="T"></typeparam>
         /// <param name="data"></param>
         /// <returns></returns>
-        public static bool Add<T>(T data)
+        public static void AddToCollection<T>(T data)
         {
             using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
             {
                 db.GetCollection<T>().Insert(data);
-                return true;
             }
+
+            _ledgerMutated = true;
         }
 
         /// <summary>
@@ -105,9 +152,7 @@ namespace Domino
             };
 
             // Add our transaction to a new block.
-            Block block = new Block();
-            block.Transactions.Add(transaction);
-
+            Block block = new Block(transaction);
             block.MineBlock();
             Initialize();
         }

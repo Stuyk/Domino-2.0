@@ -11,11 +11,11 @@ namespace Domino
         public static bool VerifyAllBlocks()
         {
             // If it's our genesis block. Ignore it.
-            if (Database.GetCollectionCount() < 1)
+            if (Database.Count < 1)
                 return true;
 
             Block previousBlock = Database.LastBlock();
-            foreach (Block block in Database.GetFullCollection<Block>())
+            foreach (Block block in Database.FullBlockCollection)
             {
                 string hash = block.RetrieveHash();
 

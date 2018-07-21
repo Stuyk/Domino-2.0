@@ -11,12 +11,13 @@ namespace Domino
         public static Block CurrentBlock;
         public static Queue<Block> QueuedBlocks;
         public static bool CurrentlyMining = false;
-        private static int TimeSinceLastBlock = DateTime.Now.AddMilliseconds(Settings.BlockTime).Millisecond;
+        private static int _timeSinceLastBlockCheck;
 
         public static void Initialize()
         {
-            Console.WriteLine($"--> [Domino] Blocks Verified. Starting up worker thread. \r\n");
+            Console.WriteLine("--> [Domino] Blocks Verified. Starting up worker thread.");
             QueuedBlocks = new Queue<Block>();
+
             Thread workerThread = new Thread(Pulse) { IsBackground = true };
             workerThread.Start();
         }
@@ -25,39 +26,32 @@ namespace Domino
         {
             while (Running)
             {
-                Thread.Sleep(100);
                 CheckBlocks();
+                Thread.Sleep(1000);
             }
         }
 
         // This will check to see if our Queue has anything in it.
         public static void CheckBlocks()
         {
-            if (DateTime.Now.Millisecond > TimeSinceLastBlock)
-            {
-                TimeSinceLastBlock = DateTime.Now.AddMilliseconds(Settings.BlockTime).Millisecond;
+            if (CurrentBlock == null) return;
 
-                if (CurrentBlock == null || CurrentBlock.Transactions.Count < 1)
+            var tmp = Environment.TickCount;
+            if (tmp - _timeSinceLastBlockCheck >= Settings.BlockTime)
+            {
+                _timeSinceLastBlockCheck = tmp;
+
+                if (CurrentBlock.Transactions.Count < 1)
                     return;
 
                 QueuedBlocks.Enqueue(CurrentBlock);
                 CurrentBlock = new Block();
             }
 
-            if (CurrentBlock == null)
+            if (CurrentBlock == null || QueuedBlocks.Count <= 0 || CurrentlyMining || !Verification.VerifyAllBlocks())
                 return;
 
-            if (QueuedBlocks.Count <= 0)
-                return;
-
-            if (CurrentlyMining)
-                return;
-
-            if (!Verification.VerifyAllBlocks())
-                return;
-
-            Block mineBlock = QueuedBlocks.Dequeue();
-            mineBlock.MineBlock();
+            QueuedBlocks.Dequeue().MineBlock();
         }
     }
 }
