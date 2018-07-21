@@ -79,14 +79,12 @@ namespace DominoBlockchain
             using (var db = new LiteDatabase(_databaseFile)) return db.CollectionExists(typeof(T).Name);
         }
 
-        public static bool Add<T>(T data)
+        public static void Add<T>(T data)
         {
             using (var db = new LiteDatabase(_databaseFile))
             {
-                if (!db.CollectionExists(typeof(T).Name)) return false;
                 db.GetCollection<T>().Insert(data);
                 _ledgerMutated = true;
-                return true;
             }
         }
     }
