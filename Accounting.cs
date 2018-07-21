@@ -21,7 +21,7 @@ namespace Domino
             if (account == null)
                 return 0;
 
-            IEnumerable<Block> blocks = Database.GetFullCollection<Block>();
+            IEnumerable<Block> blocks = Database.FullBlockCollection;
 
             decimal negativeTrans = 0;
             decimal positiveTrans = 0;

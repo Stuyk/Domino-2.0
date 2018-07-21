@@ -53,7 +53,7 @@ namespace Domino
                 Hash = RetrieveHash();
             }
 
-            Database.Add(this);
+            Database.AddToCollection(this);
             Console.WriteLine($"--> [Domino] Block Confirmed. Added to Database.");
             Console.WriteLine($"ID: {ID} || Transaction Count: {Transactions.Count} || Difficulty: {Nonce}");
             Console.WriteLine($"Unconfirmed Blocks: {Worker.QueuedBlocks.Count} || Transaction Time: {(DateTime.Now - startTime).Minutes}m {(DateTime.Now - startTime).Seconds}s \r\n");
