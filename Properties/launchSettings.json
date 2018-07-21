@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "domino": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\Vape\\Desktop\\RageMP\\server-files\\server.exe",
+      "workingDirectory": "C:\\Users\\Vape\\Desktop\\RageMP\\server-files"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup>
+<TargetFramework>netcoreapp2.0</TargetFramework>
+</PropertyGroup>
+<ItemGroup>
+<PackageReference Include="gtanetwork.api" Version="0.*" />
+<PackageReference Include="LiteDB" Version="4.1.4" />
+</ItemGroup>
+</Project>

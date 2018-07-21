@@ -1,91 +1,116 @@
-﻿using System;
-using System.Collections;
+﻿using LiteDB;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using LiteDB;
 
-namespace DominoBlockchain
+namespace Domino
 {
-    public static class Database
+    internal class Database
     {
-        private static bool _ledgerMutated;
-
-        private static int _count;
-        public static int Count
-        {
-            get
-            {
-                if (_ledgerMutated) _count = LedgerCollection.Count();
-                return _count;
-            }
-        }
-
-        private static LiteCollection<Block> _ledgerCollection;
-        public static LiteCollection<Block> LedgerCollection
-        {
-            get
-            {
-                if (_ledgerMutated)
-                {
-                    _ledgerCollection = Get<Block>();
-                    _ledgerMutated = false;
-                }
-                return _ledgerCollection;
-            }
-        }
-
-        private static Block[] _fullLedgerCollection;
-        public static Block[] FullLedgerCollection
-        {
-            get
-            {
-                if (_ledgerMutated)
-                {
-                    _fullLedgerCollection = Get<Block>()?.FindAll().ToArray();
-                    _ledgerMutated = false;
-                }
-                return _fullLedgerCollection;
-            }
-        }
-
-        public static Block LastBlock => _ledgerCollection?.FindOne(Query.All(Query.Descending));
-
-        private static readonly char Path = System.IO.Path.DirectorySeparatorChar;
-        private static readonly string AssemblyName = typeof(Database).Assembly.GetName().Name;
-        private static string _databaseDirectory;
-        private static string _databaseFile;
-
+        // Initialize our Database.
         public static void Initialize()
         {
-            _databaseDirectory = $"bridge{Path}resources{Path}{AssemblyName}{Path}database";
-            if (!Directory.Exists(_databaseDirectory)) Directory.CreateDirectory(_databaseDirectory);
-            _databaseFile = $"{_databaseDirectory}{Path}ledger.db";
+            Settings.Initialize();
 
-            // Debugging purposes
-            var fullCollection = FullLedgerCollection;
-        }
-
-        // private for the sake of caching
-        private static LiteCollection<T> Get<T>()
-        {
-            var colName = typeof(T).Name;
-            using (var db = new LiteDatabase(_databaseFile)) return db.CollectionExists(colName) ? db.GetCollection<T>(colName) : null;
-        }
-
-        public static bool Exists<T>()
-        {
-            using (var db = new LiteDatabase(_databaseFile)) return db.CollectionExists(typeof(T).Name);
-        }
-
-        public static void Add<T>(T data)
-        {
-            using (var db = new LiteDatabase(_databaseFile))
+            // Get the collection if it exists.
+            if (File.Exists(Settings.DatabaseLocation + Settings.DatabaseFile))
             {
-                db.GetCollection<T>().Insert(data);
-                _ledgerMutated = true;
+                Console.WriteLine("--> [Domino] Database Found. Beginning Verification. \r\n");
+                Verification.VerifyAllBlocks();
+                Worker.Initialize();
+                return;
+            }
+
+            // Else let's run the genesis block creation.
+            GenerateGenesisBlock();
+        }
+
+        /// <summary>
+        /// Get the entire collection based on its type.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static IEnumerable<T> GetFullCollection<T>()
+        {
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
+            {
+                return db.GetCollection<T>().FindAll();
             }
         }
+
+        /// <summary>
+        /// Get the Full Collection Count for Blocks
+        /// </summary>
+        /// <returns></returns>
+        public static int GetCollectionCount()
+        {
+            IEnumerable<Block> blocks = GetFullCollection<Block>();
+            return blocks.Count();
+        }
+
+        /// <summary>
+        /// Check if the collection of the class type exists inside of our database.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static bool Exists<T>()
+        {
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile)) return db.CollectionExists(typeof(T).Name);
+        }
+
+        /// <summary>
+        /// Add a document to the database.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public static bool Add<T>(T data)
+        {
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
+            {
+                db.GetCollection<T>().Insert(data);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Get the last block in the database.
+        /// </summary>
+        /// <returns></returns>
+        public static Block LastBlock()
+        {
+            using (var db = new LiteDatabase(Settings.DatabaseLocation + Settings.DatabaseFile))
+            {
+                return db.GetCollection<Block>().FindOne(Query.All(Query.Descending));
+            }
+        }
+
+        /// <summary>
+        /// Generate the Genesis block for our database.
+        /// </summary>
+        private static void GenerateGenesisBlock()
+        {
+            if (Exists<Block>())
+                return;
+
+            Console.WriteLine("--> [Domino] Creating Genesis Block...");
+            // Create our Max Economy Transaction
+            Transaction transaction = new Transaction
+            {
+                Amount = Settings.MaximumEconomySupply,
+                Sender = Utility.ComputeHash("GENESIS", Settings.ServerAccount),
+                Reciever = Utility.ComputeHash(Settings.ServerAccount)
+            };
+
+            // Add our transaction to a new block.
+            Block block = new Block();
+            block.Transactions.Add(transaction);
+
+            block.MineBlock();
+            Initialize();
+        }
+        
     }
 }

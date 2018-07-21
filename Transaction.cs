@@ -1,35 +1,83 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using GTANetworkAPI;
 
-namespace DominoBlockchain
+namespace Domino
 {
-    public class Transaction : Shared
+    internal class Transaction : StandardData
     {
-        public string Sender { get; set; } // Who is this transaction taken from?
-        public string Reciever { get; set; } // Who recieves this transaction?
-        public ulong Amount { get; set; } // Amount Sent
+        public string Sender { get; set; }
+        public string Reciever { get; set; }
+        public decimal Amount { get; set; }
+        public bool WasTaxTransaction { get; set; } = false;
 
-        public string ComputeHash() => Util.ComputeHash(Sender, Reciever, Amount, Timestamp);
-
-        public Transaction()
+        /// <summary>
+        /// Create a new transaction.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="reciever"></param>
+        /// <param name="amount"></param>
+        public Transaction CreateTransaction(string sender, string reciever, decimal amount, bool isTaxTransaction = false)
         {
-            // Verify all current blocks before we add our transaction.
-            //if (!Verification.VerifyAllBlocks()) return; // unnecessary
+            if (isTaxTransaction)
+            {
+                TaxTransaction(sender, reciever, amount);
+                return this;
+            }
 
-            //if (Main.CurrentBlock == null) Main.CurrentBlock = new Block { PreviousBlockHash = Block.LatestConfirmedBlock.Hash };
+            Sender = Utility.ComputeHash(sender);
+            Reciever = Utility.ComputeHash(reciever);
+            Amount = amount;
 
-            // Create the new transaction object.
+            decimal taxAmount = DetermineTax(Amount);
+            Amount = Amount - taxAmount;
+            TransactionFee(taxAmount);
 
-            // Add it to our queue system.
+            if (Worker.CurrentBlock == null)
+            {
+                Worker.CurrentBlock = new Block();
+            }
 
-            // Generate TX Hash
-            Hash = ComputeHash();
+            if (Worker.CurrentBlock.Transactions.Count >= Settings.MaxTxPerBlock)
+            {
+                Worker.QueuedBlocks.Enqueue(Worker.CurrentBlock);
+                Worker.CurrentBlock = new Block();
+            }
 
-            NAPI.Util.ConsoleOutput("[DOMINO] New TX created.");
-            Dispatcher.EnqueueTransaction(this);
+            Worker.CurrentBlock.Transactions.Add(this);
+            return this;
         }
 
+        private void TaxTransaction(string sender, string reciever, decimal amount)
+        {
+            Sender = sender;
+            Reciever = reciever;
+            Amount = amount;
+            WasTaxTransaction = true;
+
+            if (Worker.CurrentBlock == null)
+            {
+                Worker.CurrentBlock = new Block();
+            }
+
+            if (Worker.CurrentBlock.Transactions.Count >= Settings.MaxTxPerBlock)
+            {
+                Worker.QueuedBlocks.Enqueue(Worker.CurrentBlock);
+                Worker.CurrentBlock = new Block();
+            }
+
+            Worker.CurrentBlock.Transactions.Add(this);
+        }
+
+        private void TransactionFee(decimal amount)
+        {
+            Transaction transaction = new Transaction();
+            transaction.CreateTransaction(Sender, Utility.ComputeHash(Settings.ServerAccount), amount, true);
+        }
+
+        private decimal DetermineTax(decimal amount)
+        {
+            return amount * Settings.TaxAmount;
+        }
     }
 }

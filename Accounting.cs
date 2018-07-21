@@ -4,121 +4,146 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace DominoBlockchain
+namespace Domino
 {
     public class Accounting
     {
-        /*
         /// <summary>
-        /// Retrieve the integer amount of available account balance.
+        /// Retrieve account balance based on just accountName.
         /// </summary>
         /// <param name="accountName"></param>
+        /// <param name="isHashed"></param>
         /// <returns></returns>
-        public static decimal RetrieveAccountBalance(string accountName, bool preHashed = false)
+        public static decimal GetAccountBalance(Client client)
         {
-            var collection = Domino.db.GetCollection<Transaction>("Transactions");
+            string account = GetClientHelper(client).Hash;
 
-            string accountHash;
-            if (preHashed)
+            if (account == null)
+                return 0;
+
+            IEnumerable<Block> blocks = Database.GetFullCollection<Block>();
+
+            decimal negativeTrans = 0;
+            decimal positiveTrans = 0;
+
+            foreach (Block block in blocks)
             {
-                accountHash = accountName;
-            } else {
-                accountHash = Utility.RetrieveHash(new string[] { accountName });
-            }
-            
-            var recievedTransactions = collection.Find(Query.EQ("Reciever", accountHash));
-            var senderTransactions = collection.Find(Query.EQ("Sender", accountHash));
+                foreach (Transaction transaction in block.Transactions)
+                {
+                    if (transaction.Reciever == account)
+                    {
+                        positiveTrans += transaction.Amount;
+                    }
 
-            decimal negativeTransactions = 0;
-            decimal positiveTransactions = 0;
-
-            foreach (var transaction in recievedTransactions)
-            {
-                positiveTransactions += transaction.Amount;
+                    if (transaction.Sender == account)
+                    {
+                        negativeTrans += transaction.Amount;
+                    }
+                }
             }
 
-            foreach (var transaction in senderTransactions)
-            {
-                negativeTransactions += transaction.Amount;
-            }
-
-            decimal finalAmount = positiveTransactions - negativeTransactions;
-
-            return finalAmount;
+            return (positiveTrans - negativeTrans);
         }
 
         /// <summary>
-        /// Does the account have enough balance?
+        /// Retrieve the account has enough balance. True or False.
         /// </summary>
         /// <param name="accountName"></param>
         /// <param name="amount"></param>
+        /// <param name="isHashed"></param>
         /// <returns></returns>
-        public static bool HasEnoughAccountBalance(string accountName, decimal amount, bool prehashed = false)
+        public static bool HasEnoughBalance(Client client, decimal amount)
         {
-            decimal accountBalance = RetrieveAccountBalance(accountName, prehashed);
-
-            if (accountBalance >= amount)
-            {
+            if (GetAccountBalance(client) >= amount)
                 return true;
-            }
 
             return false;
         }
 
-        [Command("send")]
-        public void createTransaction(Client client, string reciever, decimal amount)
+        /// <summary>
+        /// Send a single transaction that will not allow additional transactions until complete.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="reciever"></param>
+        /// <param name="amount"></param>
+        public static void SendPeerToPeerTransaction(Client client, string reciever, decimal amount)
         {
-            amount = Math.Round(amount);
+            if (amount <= 0)
+                return;
 
-            if (amount < 5)
+            if (amount >= 100000)
+                return;
+
+            if (!HasEnoughBalance(client, amount))
+                return;
+
+            Client recievingParty = GetClientByName(reciever);
+
+            if (recievingParty == null)
             {
-                client.SendNotification("~r~No.");
+                client.SendChatMessage($"~o~{reciever} ~w~is ~r~not available~w~. Sending transaction to ~o~{reciever}.");
+            }
+            
+            Transaction transaction = new Transaction();
+            transaction.CreateTransaction(client.Name, reciever, amount);
+        }
+
+        public static void SendServerRewardTransaction(Client client, decimal amount)
+        {
+            if (amount >= 5000)
+            {
+                Console.WriteLine("[Domino] Excessive amount for reward. Refusing transaction.");
                 return;
             }
 
-            if (!HasEnoughAccountBalance(client.Name, amount, false))
-            {
-                client.SendNotification("~r~Not enough account balance.");
-                client.SendNotification("~r~Not enough account balance.");
-                return;
-            }
-
-            Utility.CreateNewTransaction(client.Name, reciever, amount);
-            Client cReciever = NAPI.Player.GetPlayerFromName(reciever);
-
-            client.SendNotification($"~w~Attempting to send money to {reciever}. Amount: ${amount}");
-            client.SendChatMessage($"~w~Attempting to send money to {reciever}. Amount: ${amount}");
-            if (cReciever != null)
-            {
-                cReciever.SendNotification($"~w~You are recieving money from ~o~{client.Name}~w~.");
-                cReciever.SendChatMessage($"~w~You are recieving money from ~o~{client.Name}~w~. ~b~Awaiting verification...");
-            }
+            Transaction transaction = new Transaction();
+            transaction.CreateTransaction(Settings.ServerAccount, client.Name, amount);
         }
 
-        [Command("balance")]
-        public void balance(Client client)
+        /// <summary>
+        /// Returns the server account name.
+        /// </summary>
+        /// <returns></returns>
+        public static string GetServerAccountName()
         {
-            decimal amount = RetrieveAccountBalance(client.Name);
-            client.SendNotification($"Account Balance: ${amount}");
-            client.SendChatMessage($"Account Balance: ${amount}");
+            return Settings.ServerAccount;
         }
 
-        [Command("economy")]
-        public void economyBalance(Client client)
+        /// <summary>
+        /// Retrieve a player name from hash. Only works for Online players obviously.
+        /// </summary>
+        /// <param name="hash"></param>
+        /// <returns></returns>
+        public static string GetNameFromHash(string hash)
         {
-            decimal amount = RetrieveAccountBalance(Domino.MainAccountName);
-
-            decimal econ = Domino.MaximumEconomySupply - amount; // Difference
-
-            decimal final = econ + amount;
-
-
-
-
-
-            client.SendChatMessage($"Economy Health: ~g~{final} / {Domino.MaximumEconomySupply}");
-            client.SendChatMessage($"Player Holdings: ~g~{econ} / {Domino.MaximumEconomySupply}");
+            foreach (Client client in NAPI.Pools.GetAllPlayers())
+            {
+                if ((client.GetData("DominoAccount") as PlayerHelper).Hash == hash)
+                    return client.Name;
+            }
+            return null;
         }
-        */
+
+        /// <summary>
+        /// Player Helper class is returned to pull HASH or PlayerName attached to Hash.
+        /// </summary>
+        /// <param name="client"></param>
+        /// <returns></returns>
+        public static PlayerHelper GetClientHelper(Client client)
+        {
+            return client.GetData("DominoAccount") as PlayerHelper;
+        }
+
+        /// <summary>
+        /// Get potential online client.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static Client GetClientByName(string name)
+        {
+            return NAPI.Pools.GetAllPlayers().Find(x => x.Name == name);
+        } 
+
+
     }
 }
